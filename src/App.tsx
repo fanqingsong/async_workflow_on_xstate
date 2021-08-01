@@ -14,7 +14,7 @@ function App() {
 
   console.log("dog =", dog);
 
-  let dog_url = dog? dog.message: null
+  let dog_url = dog? dog: null
 
   return (
     <div className="app">
@@ -22,7 +22,7 @@ function App() {
       <h2>Fork this template!</h2>
 
       <button onClick={()=> dsend("FETCH")}>
-        load one dog
+        START TO BROWSE ALL BREED DOG
       </button>
       <div>dog = {dog_url}</div>
 
