@@ -12,29 +12,53 @@ const fetchDogBreed = async (context, event) => {
 const getBreeds = (context, event) => {
   console.log("event.data.message =", event.data.message)
 
-  return event.data.message;
+  let rawDogBreeds = event.data.message;
+
+  console.log("raw dog breeds:", rawDogBreeds, typeof(rawDogBreeds));
+  let dogBreeds = [];
+
+  for(let oneBreed in rawDogBreeds){
+    let oneBreedChildren = rawDogBreeds[oneBreed];
+    // only get this breed without sub breed.
+    if (oneBreedChildren.length == 0){
+      dogBreeds.push(oneBreed);
+    }
+  }
+  console.log("dog breeds filtered:", dogBreeds);
+
+  return dogBreeds;
 }
 
-const showBreed = async (context, event) => {
-  console.log("showBreed promise is called.");
+const checkPointer = (context, event) => (callback, onReceive) => {
+  console.log("checkPointer is called.");
 
   let dogBreeds = context.dogBreeds;
   let dogPointer = context.dogPointer;
 
-  console.log("dog breeds:", dogBreeds, typeof(dogBreeds));
-  let dogBreedKeys = [];
-  for(let oneBreed in dogBreeds){
-    dogBreedKeys.push(oneBreed);
-  }
-  console.log("dog breed keys:", dogBreedKeys);
+  console.log("dog breeds:", dogBreeds);
+  console.log("dog pointer:", dogPointer);
 
-  if (dogPointer >= dogBreedKeys.length) {
+  if (dogPointer >= dogBreeds.length) {
     console.log('No more dog breed.')
-    // reject('No more dog breed.');
-    return;
+    callback("TO_THE_END");
+  } else {
+    callback("PASSED")
   }
 
-  let dogBreed = dogBreedKeys[dogPointer];
+  // Perform cleanup
+  return () => {};
+}
+
+const getDogURL = async (context, event) => {
+  console.log("getDogURL promise is called.");
+
+  let dogBreeds = context.dogBreeds;
+  let dogPointer = context.dogPointer;
+
+  console.log("dog breeds:", dogBreeds);
+  console.log("dog pointer:", dogPointer);
+
+  let dogBreed = dogBreeds[dogPointer];
 
   console.log("before call api.");
 
@@ -47,12 +71,24 @@ const showBreed = async (context, event) => {
   return await data.json();
 };
 
+const increasePointer = (context, event) => (callback, onReceive) => {
+  console.log("increasePointer is called.");
+
+  let dogPointer = context.dogPointer;
+
+  console.log("dog pointer:", dogPointer);
+
+  callback("OK")
+
+  // Perform cleanup
+  return () => {};
+}
 
 export const fetchMachine = createMachine({
   id: 'Dog API',
   initial: 'idle',
   context: {
-    dog: null,
+    dogURL: null,
     dogBreeds: null,
     dogPointer: null
   },
@@ -79,21 +115,35 @@ export const fetchMachine = createMachine({
         CANCEL: 'idle'
       }
     },
+    pointerChecking: {
+      invoke: {
+        id: 'checkPointer',
+        src: checkPointer
+      },
+      on: {
+        PASSED: { 
+          target: 'breedShowing',
+        },
+        TO_THE_END: {
+          target: 'success'
+        }
+      }
+    },
     breedShowing:{
       invoke: {
-        id: 'showBreed',
-        src: showBreed,
+        id: 'getDogURL',
+        src: getDogURL,
         onDone: {
           target: 'waiting',
           actions: assign({
-            dog: (context, event) => {
+            dogURL: (context, event) => {
                 console.log("event.data.message =", event.data.message)
 
                 return event.data.message
-            }
+            },
           })
         },
-        onError: 'success'
+        onError: 'failure'
       },
       on: {
         CANCEL: 'idle'
@@ -112,9 +162,22 @@ export const fetchMachine = createMachine({
       },
       on: {
         TIMEOUT: { 
-          target: 'breedShowing',
-          actions: assign({ dogPointer: context => context.dogPointer + 1 }) 
+          target: 'pointerIncreasing'
         }
+      }
+    },
+    pointerIncreasing: {
+      invoke: {
+        id: 'increasePointer',
+        src: increasePointer
+      },
+      on: {
+        OK: { 
+          target: 'breedShowing',
+          actions: assign({
+            dogPointer: context => context.dogPointer + 1
+          })
+        },
       }
     },
     success: {
@@ -122,7 +185,7 @@ export const fetchMachine = createMachine({
     },
     failure: {
       on: {
-        FETCH: 'breedLoading'
+        RETRY: 'idle'
       }
     }
   }

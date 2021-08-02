@@ -1,43 +1,113 @@
 import React, {Suspense} from 'react'
-import './App.css';
+
+// import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
 import { useMachine } from '@xstate/react';
-import { toggleMachine } from './toggle.machine';
 import { fetchMachine } from './dog.machine';
 
+import { 
+  Button,
+  Container,
+  Row,
+  Col,
+  Alert,
+  Image,
+  Pagination,
+} from 'react-bootstrap';
+
 function App() {
-  const [state, send] = useMachine(toggleMachine);
-  const active = state.matches('active');
-  const { count } = state.context;
-
   const [dstate, dsend] = useMachine(fetchMachine);
-  const { dog } = dstate.context;
+  const { dogURL, dogBreeds, dogPointer } = dstate.context;
 
-  console.log("dog =", dog);
+  console.log("dogURL =", dogURL);
 
-  let dog_url = dog? dog: null
+  let paginationItems = [];
+  if (dogBreeds) {
+    let active = dogPointer;
+    let dogBreedNum = dogBreeds.length;
+    let paddingNum = 5;
+
+    let leftIndex = dogPointer - paddingNum;
+    leftIndex = leftIndex>=0?leftIndex:0;
+    let leftHidden = leftIndex > 0;
+
+    let rightIndex = dogPointer + paddingNum;
+    rightIndex = rightIndex<dogBreedNum?rightIndex:dogBreedNum-1;
+    let rightHidden = rightIndex < dogBreedNum - 1;
+
+    if (leftHidden) {
+      paginationItems.push(
+        <Pagination.Ellipsis />
+      )
+    }
+
+    for (let number = leftIndex; number <= rightIndex; number++) {
+      paginationItems.push(
+        <Pagination.Item key={number} active={number === dogPointer}>
+          {dogBreeds[number]}
+        </Pagination.Item>,
+      );
+    }
+
+    if (rightHidden) {
+      paginationItems.push(
+        <Pagination.Ellipsis />
+      )
+    }
+  }
 
   return (
     <div className="app">
-      <h1>XState React Template</h1>
-      <h2>Fork this template!</h2>
+      <Container fluid>
+        <Row>
+          <Col fluid>
+            <Alert variant="primary">
+              <h1>
+                Dog Gallery
+              </h1>
+            </Alert>
 
-      <button onClick={()=> dsend("FETCH")}>
-        START TO BROWSE ALL BREED DOG
-      </button>
-      <div>dog = {dog_url}</div>
+            <Button variant="primary" onClick={()=> dsend("FETCH")}>
+              Start browsing all breed.
+            </Button>
 
-      {
-        dog_url?
-          <img src={dog_url} alt="display image" />
-          :""
-      }
+            <br/>
+          </Col>
+        </Row>
+        <Row>
+          <Col fluid>
+            {
+              dogBreeds?
+                <div>
+                    <Pagination fluid>
+                      {paginationItems}
+                    </Pagination>
+                    <div>{dogPointer+1}/{dogBreeds.length}</div>
+                </div>
+              : ""
+            }
+          </Col>
+        </Row>
+        <Row>
+          <Col fluid>
+            {
+              dogURL?
+                <div>
+                  <div>
+                    <a href={dogURL}>
+                      <Button variant="link">{dogURL}</Button>
+                    </a>
+                  </div>
+                  <Image src={dogURL} fluid />
+                </div>
+                :""
+            }
+          </Col>
+        </Row>
+      </Container>
 
-      {/* <button onClick={() => send('TOGGLE')}>
-        Click me ({active ? '✅' : '❌'})
-      </button>{' '}
-      <code>
-        Toggled <strong>{count}</strong> times
-      </code> */}
+
     </div>
   );
 }
